@@ -1,7 +1,7 @@
 var duckdb = require('../../duckdb/tools/nodejs');
 var assert = require('assert');
 
-describe(`quack extension`, () => {
+describe(`oml extension`, () => {
     let db;
     let conn;
     before((done) => {
@@ -13,18 +13,18 @@ describe(`quack extension`, () => {
         });
     });
 
-    it('quack function should return expected string', function (done) {
-        db.all("SELECT quack('Sam') as value;", function (err, res) {
+    it('oml function should return expected string', function (done) {
+        db.all("SELECT oml('Sam') as value;", function (err, res) {
             if (err) throw err;
-            assert.deepEqual(res, [{value: "Quack Sam 🐥"}]);
+            assert.deepEqual(res, [{value: "Oml Sam 🐥"}]);
             done();
         });
     });
 
-    it('quack_openssl_version function should return expected string', function (done) {
-        db.all("SELECT quack_openssl_version('Michael') as value;", function (err, res) {
+    it('oml_openssl_version function should return expected string', function (done) {
+        db.all("SELECT oml_openssl_version('Michael') as value;", function (err, res) {
             if (err) throw err;
-            assert(res[0].value.startsWith('Quack Michael, my linked OpenSSL version is OpenSSL'));
+            assert(res[0].value.startsWith('Oml Michael, my linked OpenSSL version is OpenSSL'));
             done();
         });
     });

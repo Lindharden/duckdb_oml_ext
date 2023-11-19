@@ -1,0 +1,23 @@
+# name: test/sql/oml.test
+# description: test oml extension
+# group: [oml]
+
+# Before we load the extension, this will fail
+statement error
+SELECT oml('Sam');
+----
+Catalog Error: Scalar Function with name oml does not exist!
+
+# Require statement will ensure this test is run with this extension loaded
+require oml
+
+# Confirm the extension works
+query I
+SELECT oml('Sam');
+----
+Oml Sam 🐥
+
+query I
+SELECT oml_openssl_version('Michael');
+----
+<REGEX>:Oml Michael, my linked OpenSSL version is OpenSSL.*
