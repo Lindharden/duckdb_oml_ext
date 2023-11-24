@@ -4,20 +4,180 @@
 
 # Before we load the extension, this will fail
 statement error
-SELECT oml('Sam');
+CALL Power_Consumption_load('st_lrwan1_11.oml');
 ----
-Catalog Error: Scalar Function with name oml does not exist!
+Catalog Error: Table Function with name power_consumption_load does not exist!
+Did you mean "summary"?
 
 # Require statement will ensure this test is run with this extension loaded
 require oml
 
-# Confirm the extension works
-query I
-SELECT oml('Sam');
+
+######### Power_Consumption_load tests #########
+
+# Power_Consumption_load tests - returns 1 value as row_count and 1 string as table_name
+query II
+CALL Power_Consumption_load('st_lrwan1_11.oml');
 ----
-Oml Sam 🐥
+67724
+Power_Consumption
+
+
+# Tests 'LIMIT' - returns 8 values
+query IIIIIIII
+SELECT * FROM Power_Consumption LIMIT 1;
+----
+3.542297
+1
+1
+1697457735
+465462
+0.283869
+4.87
+0.058263
+
+
+# Tests 'where' - returns 8 values
+query IIIIIIII
+SELECT * from Power_Consumption where node_id_seq = 5;
+----
+3.542608
+1
+5
+1697457735
+483496
+0.283869
+4.870000
+0.058361
+
+
+
+
+######### OmlGen tests #########
+
+
+# Confirm OmlGen works - returns 1 value as row_count and 1 string of table_name
+query II
+CALL OmlGen('st_lrwan1_11.oml');
+----
+67724
+control_node_measures_consumption
+
+
+# Test LIMIT for OmlGen - returns 8 values
+query IIIIIIII
+SELECT * FROM control_node_measures_consumption LIMIT 1;
+----
+3.542297
+1
+1
+1697457735
+465462
+0.283869
+4.870000
+0.058263
+
+
+# Confirm OmlGen works on second oml file 'st_lrwan1_15.oml' - returns 1 value as row_count and 1 string of table_name
+query II
+CALL OmlGen('st_lrwan1_15.oml');
+----
+67724
+control_node_measures_consumption
+
+
+# Test row_count for second oml file 'st_lrwan1_15.oml' - returns 1 value as row_count
+query I
+SELECT * from OmlGen('data/oml_testing/st_lrwan1_15.oml');
+----
+1204
+
+
+# Test 'where' for second oml file 'st_lrwan1_15.oml' - returns 8 values
+query IIIIIII
+SELECT * from control_node_measures_radio where value = 2;
+----
+6.921713
+2
+2
+1689001670
+909600
+11
+-91
+
+
+# Test 'where' for first oml file 'st_lrwan1_11.oml' - returns 8 values
+query IIIIIIII
+SELECT * from control_node_measures_consumption where value = 1;
+----
+3.542297
+1
+1
+1697457735
+465462
+0.283869
+4.870000
+0.058263
+
+
+
+######### Sequence & View tests #########
+
+# Confirm view exists and has row_count - returns 1 value as row_count
+query I
+SELECT count(*) from PC;
+----
+67724
+
+
+# Tests 'where' on View - returns 8 data values
+query IIIII
+SELECT * from PC where id = 4;
+----
+1
+1697457735
+465462
+0.283869
+4.870000
+0.058263
+
+
+# Test the initial value of the sequence - returns 0
+query I
+SELECT nextval('Power_Consumption_id_seq');
+----
+0
+
+
+# Test the increment behavior of the sequence - returns 1
+query I
+SELECT nextval('Power_Consumption_id_seq');
+----
+1
+
+
+# Test the sequence after multiple increments - returns 2
+query I
+SELECT nextval('Power_Consumption_id_seq');
+----
+2
+
+
+
+-- Reset the sequence and test the initial value again - returns 0
+script
+ALTER SEQUENCE Power_Consumption_id_seq RESTART WITH 0;
+query I
+SELECT nextval('Power_Consumption_id_seq');
+----
+0
+
+
+# Confirm that both tables can be dropped
+query I
+DROP TABLE control_node_measures_consumption;
+----
 
 query I
-SELECT oml_openssl_version('Michael');
+DROP TABLE control_node_measures_radio;
 ----
-<REGEX>:Oml Michael, my linked OpenSSL version is OpenSSL.*
