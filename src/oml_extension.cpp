@@ -5,6 +5,7 @@
 #include "duckdb.hpp"
 #include "duckdb/catalog/catalog.hpp"
 #include "duckdb/catalog/catalog_entry/table_catalog_entry.hpp"
+#include "duckdb/catalog/catalog_entry/view_catalog_entry.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/main/appender.hpp"
@@ -43,27 +44,25 @@ Value StringLogicalTypeToValue(const std::string &parsed_val, LogicalType &type)
     throw InternalException("Invalid type: " + parsed_val + " " + type.ToString());
 }
 
-void CreateTable(ClientContext &context, TableFunctionInput &input_data) {
-    auto &data = (ReadOMLData &)*input_data.bind_data;
+void CreateTable(ClientContext &context, ReadOMLData &bind_data, Catalog &catalog) {
     auto table_info = make_uniq<CreateTableInfo>();
-    table_info->schema = data.schema;
-    table_info->table = data.table;
+    table_info->schema = bind_data.schema;
+    table_info->table = bind_data.table;
     table_info->on_conflict = OnCreateConflict::IGNORE_ON_CONFLICT;
 
-    // Define the schema for the "Power_Consumption" table from ReadOMLData
-    for (idx_t i = 0; i < data.column_count; i++) {
-        table_info->columns.AddColumn(ColumnDefinition(data.column_names[i], data.column_types[i]));
-        if (!data.not_null_constraint.empty() && data.not_null_constraint[i]) {
+    // Define the schema for the oml table from ReadOMLData
+    for (idx_t i = 0; i < bind_data.column_count; i++) {
+        table_info->columns.AddColumn(ColumnDefinition(bind_data.column_names[i], bind_data.column_types[i]));
+        if (!bind_data.not_null_constraint.empty() && bind_data.not_null_constraint[i]) {
             table_info->constraints.push_back(make_uniq<NotNullConstraint>(LogicalIndex(i)));
         }
     }
 
-    // Get the default catalog to create table
-    auto &catalog = Catalog::GetCatalog(context, data.catalog);
     catalog.CreateTable(context, std::move(table_info));
 }
 
-void CreateSequence(ClientContext &context, Catalog &catalog, ReadOMLData &bind_data) {
+
+void CreateSequence(ClientContext &context, ReadOMLData &bind_data, Catalog &catalog) {
     auto seq_info = make_uniq<CreateSequenceInfo>();
     seq_info->schema = bind_data.schema;
     seq_info->on_conflict = OnCreateConflict::IGNORE_ON_CONFLICT;
@@ -77,16 +76,16 @@ void CreateSequence(ClientContext &context, Catalog &catalog, ReadOMLData &bind_
     catalog.CreateSequence(context, *seq_info);
 }
 
-void CreateView(ClientContext &context, Catalog &catalog, ReadOMLData &bind_data) {
+void CreateView(ClientContext &context, ReadOMLData &bind_data, Catalog &catalog) {
     auto view_info = make_uniq<CreateViewInfo>();
     view_info->on_conflict = OnCreateConflict::IGNORE_ON_CONFLICT;
     view_info->view_name = "PC";
 
     string sql =
-        "CREATE VIEW PC AS (SELECT nextval('power_consumption_id_seq') AS id, "
+        "CREATE OR REPLACE VIEW PC AS (SELECT nextval('power_consumption_id_seq') AS id, "
         "cast(time_sec AS real) + cast(time_usec AS real) AS ts, "
         "power, current, voltage "
-        "FROM power_consumption);";
+        "FROM Power_Consumption);";
 
     view_info = view_info->FromCreateView(context, sql);
     view_info->schema = bind_data.schema;
@@ -118,6 +117,11 @@ static unique_ptr<FunctionData> PowerConsumptionLoadBind(ClientContext &context,
     names = {"row_count"};
     return_types.emplace_back(LogicalType::VARCHAR);
     names.emplace_back("Power_Consumption");
+
+    Catalog &catalog = Catalog::GetCatalog(context, bind_data->catalog);
+    CreateTable(context, *bind_data, catalog);
+    CreateSequence(context, *bind_data, catalog);
+    CreateView(context, *bind_data, catalog);
 
     return std::move(bind_data);
 }
@@ -169,6 +173,9 @@ static unique_ptr<FunctionData> OmlLoadBind(ClientContext &context, TableFunctio
     return_types.emplace_back(LogicalType::VARCHAR);
     names.emplace_back("table_name");
 
+    auto &catalog = Catalog::GetCatalog(context, bind_data->catalog);
+    CreateTable(context, *bind_data, catalog);
+
     return std::move(bind_data);
 }
 
@@ -181,14 +188,11 @@ static void AppendValues(InternalAppender *appender, vector<Value> values) {
 }
 
 static void OmlLoadFunction(ClientContext &context, TableFunctionInput &data, DataChunk &output) {
-    // auto &state = *((ReadOMLData *)data.bind_data.get());
     auto &state = (ReadOMLData &)*data.bind_data;
 
     if (state.file_end_reached) {
         return;
     }
-
-    CreateTable(context, data);
 
     auto &catalog = Catalog::GetCatalog(context, state.catalog);
     auto &table_catalog_entry = catalog.GetEntry<TableCatalogEntry>(context, state.schema, state.table);
@@ -219,20 +223,19 @@ static void OmlLoadFunction(ClientContext &context, TableFunctionInput &data, Da
             values.push_back(value);
         }
 
+        // Handle parsing error
         if (values.size() != state.column_count) {
-            // Handle parsing error
             throw std::runtime_error("Error parsing line: " + line);
         }
 
         vector<duckdb::Value> data;
+        // convert parsed value to duckdb::Value
         for (idx_t i = 0; i < state.column_count; i++) {
-            // convert parsed value to duckdb::Value
             data.push_back(StringLogicalTypeToValue(values[i], state.column_types[i]));
         }
 
         AppendValues(appender.get(), data);
 
-        // Increment the row count
         state.row_count++;
     }
 
