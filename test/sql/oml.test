@@ -122,6 +122,13 @@ SELECT * from control_node_measures_consumption where value = 1;
 
 ######### Sequence & View tests #########
 
+# Test the initial value of the sequence - returns 0 as sequence starts at 0
+query I
+SELECT nextval('Power_Consumption_id_seq') AS nextval;
+----
+0
+
+
 # Confirm view exists and has row_count - returns 1 value as row_count
 query I
 SELECT count(*) from PC;
@@ -140,34 +147,19 @@ SELECT * from PC where id = 4;
 0.058361
 
 
-# Test the initial value of the sequence - returns 0
-#query I
-#SELECT nextval('Power_Consumption_id_seq');
-#----
-#0
+# Test the increment behavior of the sequence - returns row_count + 1 as sequence starts at 0 and have been used in the view exists test
+query I
+SELECT nextval('Power_Consumption_id_seq');
+----
+67725
 
 
-# Test the increment behavior of the sequence - returns 1
-#query I
-#SELECT nextval('Power_Consumption_id_seq');
-#----
-#1
-
-
-# Test the sequence after multiple increments - returns 2
-#query I
-#SELECT nextval('Power_Consumption_id_seq');
-#----
-#2
-
-
-#-- Reset the sequence and test the initial value again - returns 0
-#script
-#ALTER SEQUENCE Power_Consumption_id_seq RESTART WITH 0;
-#query I
-#SELECT nextval('Power_Consumption_id_seq');
-#----
-#0
+# Reset the sequence and test the initial value again - returns 0
+ALTER SEQUENCE Power_Consumption_id_seq RESTART WITH 0;
+query I
+SELECT nextval('Power_Consumption_id_seq');
+----
+0
 
 
 # Confirm that both tables can be dropped
