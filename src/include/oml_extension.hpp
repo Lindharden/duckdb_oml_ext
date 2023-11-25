@@ -15,7 +15,6 @@ struct ReadOMLData : public TableFunctionData {
     bool file_end_reached;                             // Flag to indicate end of file
     idx_t row_count;                                   // Number of rows processed
     string schema;
-    string file_path;
     string table;
     string catalog;
     idx_t column_count;

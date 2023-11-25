@@ -61,7 +61,6 @@ void CreateTable(ClientContext &context, ReadOMLData &bind_data, Catalog &catalo
     catalog.CreateTable(context, std::move(table_info));
 }
 
-
 void CreateSequence(ClientContext &context, ReadOMLData &bind_data, Catalog &catalog) {
     auto seq_info = make_uniq<CreateSequenceInfo>();
     seq_info->schema = bind_data.schema;
@@ -70,7 +69,7 @@ void CreateSequence(ClientContext &context, ReadOMLData &bind_data, Catalog &cat
     seq_info->usage_count = UINT64_MAX;
     seq_info->increment = 1;
     seq_info->min_value = 0;
-    seq_info->max_value = INT64_MAX;
+    seq_info->max_value = INT64_MAX; 
     seq_info->start_value = 0;
 
     catalog.CreateSequence(context, *seq_info);
@@ -82,7 +81,7 @@ void CreateView(ClientContext &context, ReadOMLData &bind_data, Catalog &catalog
     view_info->view_name = "PC";
 
     string sql =
-        "CREATE OR REPLACE VIEW PC AS (SELECT nextval('power_consumption_id_seq') AS id, "
+        "CREATE OR REPLACE VIEW PC AS (SELECT nextval('Power_Consumption_id_seq') AS id, "
         "cast(time_sec AS real) + cast(time_usec AS real) AS ts, "
         "power, current, voltage "
         "FROM Power_Consumption);";
@@ -249,7 +248,7 @@ static void OmlLoadFunction(ClientContext &context, TableFunctionInput &data, Da
 }
 
 static void LoadInternal(DatabaseInstance &instance) {
-    // Register OML load table function
+    // Register OML table functions
     auto oml_load_power_consumption = TableFunction("Power_Consumption_load", {LogicalType::VARCHAR}, OmlLoadFunction, PowerConsumptionLoadBind);
     ExtensionUtil::RegisterFunction(instance, oml_load_power_consumption);
 
